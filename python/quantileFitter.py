@@ -28,15 +28,21 @@ np.set_printoptions(threshold=sys.maxsize)
 
 class QuantileFitter:
 
-    def __init__(self, procLabel, metLabel, baseDir, comp, lumiLabel, logging):
+    def __init__(self, proc, met, procLabel, metLabel, dataDir, plotDir, comp, lumiLabel, logging):
+        self.proc = proc
+        self.met = met
         self.procLabel = procLabel
         self.metLabel = metLabel
-        self.baseDir = baseDir
+        self.dataDir = dataDir
+        self.plotDir = plotDir
         self.comp = comp
         self.lumiLabel = lumiLabel
         self.dtype = tf.float64
         self.itype = tf.int64
         self.logging = logging
+
+        self.prefit_pkl = f"{self.dataDir}/{self.proc}_{self.comp}_prefit.pkl"
+        self.postfit_pkl = f"{self.dataDir}/{self.proc}_{self.comp}_postfit.pkl"
         
     def setHistConfig(self, bhist, axis, qTMin, qTmax, recoilMin, recoilMax, qTRebin=1, recoilRebinFit=1, recoilRebinPlt=1):
 
@@ -81,20 +87,59 @@ class QuantileFitter:
         self.scale_sf_bkg_plt = None
         self.scale_sf_sig_plt = None
 
+
+
     def rebin(self, bhist, qTRebin, recoilRebin):
         s = hist.tag.Slicer()
-        bhist = bhist[{"qTbinned": s[complex(0,self.qTMin):complex(0,self.qTMax)], self.axis: s[complex(0,self.recoilMin):complex(0,self.recoilMax)]}]
+        bhist = bhist[{"qt": s[complex(0,self.qTMin):complex(0,self.qTMax)], self.axis: s[complex(0,self.recoilMin):complex(0,self.recoilMax)]}]
         bhist = bhh.rebinHist(bhist, self.axis, recoilRebin)
-        bhist = bhh.rebinHist(bhist, "qTbinned", qTRebin)
+        bhist = bhh.rebinHist(bhist, "qt", qTRebin)
         return bhist
 
 
-    def setQuantiles(self, quant_cdfvals, quantiles_hi=[]):
-        if quant_cdfvals[-1] != 1:
-            self.quant_cdfvals = quant_cdfvals + [1.-q for q in reversed(quant_cdfvals[:-1])] # symmetrize
-        else:
-            self.quant_cdfvals = quant_cdfvals
+    def setQuantiles(self, quantiles=[], quantiles_hi=[], bins_for_quantiles=[]):
+        if len(bins_for_quantiles) > 0: 
+            self.logging.info(f"Automatically calculate the quantiles based on the binning provided")
+            s = hist.tag.Slicer()
+            
+            tmp = self.rebin(self.bhist_fit, self.qTRebin, bins_for_quantiles)
+            tmp = tmp[{"qt" : s[self.qTMin:complex(0,self.qTMax):hist.sum]}] # sum over qT
 
+            yvals = tf.constant(tmp.values(), dtype=self.dtype)
+            hist_cdfvals = tf.cumsum(yvals, axis=0)/tf.reduce_sum(yvals, axis=0, keepdims=True) # normalized
+            hist_cdfvals = tf.concat([tf.constant([0], dtype=self.dtype), hist_cdfvals], axis=0) # 53 add 0
+
+            edges =  tf.constant(tmp.axes[0].edges, dtype=self.dtype)
+            centers =  tf.constant(tmp.axes[0].centers, dtype=self.dtype)
+            self.quant_cdfvals = quants = narf.fitutils.pchip_interpolate(edges, hist_cdfvals, centers)
+            
+            self.quant_cdfvals = tf.concat([tf.constant([0], dtype=self.dtype), self.quant_cdfvals, tf.constant([1], dtype=self.dtype)], axis=0) # 53 add 0
+            
+            '''
+            tmp = self.rebin(self.bhist_fit, self.qTRebin, test)
+            tmp = tmp[{"qt" : s[50:complex(0,self.qTMax):hist.sum]}] # sum over qT
+            yvals = tf.constant(tmp.values(), dtype=self.dtype)
+            hist_cdfvals = tf.cumsum(yvals, axis=0)/tf.reduce_sum(yvals, axis=0, keepdims=True) # normalized
+            hist_cdfvals = tf.concat([tf.constant([0], dtype=self.dtype), hist_cdfvals], axis=0) # 53 add 0
+
+            edges =  tf.constant(tmp.axes[0].edges, dtype=self.dtype)
+            centers =  tf.constant(tmp.axes[0].centers, dtype=self.dtype)
+            self.quant_cdfvals_hi = quants = narf.fitutils.pchip_interpolate(edges, hist_cdfvals, centers)
+            
+            self.quant_cdfvals_hi = tf.concat([tf.constant([0], dtype=self.dtype), self.quant_cdfvals_hi, tf.constant([1], dtype=self.dtype)], axis=0) # 53 add 0
+            quantiles_hi = self.quant_cdfvals_hi.numpy()
+            '''
+            print(self.quant_cdfvals)
+            #print(quantiles_hi)
+
+        elif len(quantiles) > 0:
+            if quantiles[-1] != 1:
+                self.quant_cdfvals = quantiles + [1.-q for q in reversed(quantiles[:-1])] # symmetrize
+            else:
+                self.quant_cdfvals = quantiles
+        else:
+            self.logging.info(f"Provide either quantiles or bins_for_quantiles")
+            quit()
         self.nQuants = len(self.quant_cdfvals)
         self.nParams = self.nQuants-1
         self.nQparms = self.nQuants-1
@@ -107,11 +152,12 @@ class QuantileFitter:
             self.quant_cdfvals_tf = self.quant_cdfvals_tf[None, :]
 
         else:
-            if False: # linear quantiles
-                if quant_cdfvals[-1] != 1:
+            if True: # linear quantiles
+                if quantiles_hi[-1] != 1:
                     quant_cdfvals_hi = quantiles_hi + [1.-q for q in reversed(quantiles_hi[:-1])]
                 else:
                     quant_cdfvals_hi = quantiles_hi
+                    print("lollll")
                 quant_cdfvals_lo = np.array(self.quant_cdfvals)
                 quant_cdfvals_lo_tf = tf.constant(quant_cdfvals_lo, dtype=self.dtype)
                 quant_cdfvals_hi_tf = tf.constant(quant_cdfvals_hi, dtype=self.dtype)
@@ -122,7 +168,7 @@ class QuantileFitter:
                 self.quant_cdfvals_tf = qt_tf_col*(quant_cdfvals_hi_tf_row-quant_cdfvals_lo_tf_row)/max(self.bins_qt) + quant_cdfvals_lo_tf_row
 
             if False: # log quantiles
-                if quant_cdfvals[-1] != 1:
+                if quantiles[-1] != 1:
                     quant_cdfvals_hi = quantiles_hi + [1.-q for q in reversed(quantiles_hi[:-1])]
                 else:
                     quant_cdfvals_hi = quantiles_hi
@@ -137,7 +183,7 @@ class QuantileFitter:
                 self.quant_cdfvals_tf = tf.math.exp(self.quant_cdfvals_tf)
 
             if False: # qT weighted quantiles
-                if quant_cdfvals[-1] != 1:
+                if quantiles[-1] != 1:
                     quant_cdfvals_hi = quantiles_hi + [1.-q for q in reversed(quantiles_hi[:-1])]
                 else:
                     quant_cdfvals_hi = quantiles_hi
@@ -165,6 +211,7 @@ class QuantileFitter:
             qT, qTlow, qThigh = self.centers_qt[qTbin], self.bins_qt[qTbin], self.bins_qt[qTbin+1]
             h = self.qTslice(self.bhist_fit, qTlow, qThigh)
             hist_quantiles_ = hist_quantiles[qTbin]
+            #print(hist_quantiles_)
             for i in range(0, len(hist_quantiles_)-1):
                 evts = -1
                 try:
@@ -183,8 +230,8 @@ class QuantileFitter:
         ev_map.Draw("COL Z")
         ev_map.GetXaxis().SetTitle("Quantile bin")
         ev_map.GetYaxis().SetTitle("q_{T} bin")
-        c.SaveAs(f"{self.baseDir}/ev_map.png")
-        c.SaveAs(f"{self.baseDir}/ev_map.pdf")
+        c.SaveAs(f"{self.plotDir}/ev_map.png")
+        c.SaveAs(f"{self.plotDir}/ev_map.pdf")
 
 
     def setSplineConfig(self, knots_qt, extrpl=[None, None]):
@@ -229,10 +276,11 @@ class QuantileFitter:
         parms_bkg_tf = tf.constant(parms_bkg, dtype=self.dtype)
 
         # construct cdf/pdf -- assume the same configuration as for the data fit
-        self.bkg_args = (cfg_bkg['quant_cdfvals_tf'], cfg_bkg['knots_qt'], cfg_bkg['edges_qt_tf'], cfg_bkg['order'], cfg_bkg['extrpl'], None, None, None)
+        self.bkg_args_fit = (cfg_bkg['quant_cdfvals_tf'], cfg_bkg['knots_qt'], self.edges_qt_tf, cfg_bkg['order'], cfg_bkg['extrpl'], None, None, None)
+        self.bkg_args_plt = (cfg_bkg['quant_cdfvals_tf'], cfg_bkg['knots_qt'], self.edges_qt_tf, cfg_bkg['order'], cfg_bkg['extrpl'], None, None, None)
         self.bkg_func = self.func_model # assume the same, fetch from pkl
-        self.bkg_cdf_fit = self.bkg_func(self.xvals_fit, self.xedges_fit, parms_bkg_tf, *self.bkg_args)
-        self.bkg_cdf_plt = self.bkg_func(self.xvals_plt, self.xedges_plt, parms_bkg_tf, *self.bkg_args)
+        self.bkg_cdf_fit = self.bkg_func(self.xvals_fit, self.xedges_fit, parms_bkg_tf, *self.bkg_args_fit)
+        self.bkg_cdf_plt = self.bkg_func(self.xvals_plt, self.xedges_plt, parms_bkg_tf, *self.bkg_args_plt)
 
         yields_bkg_fit = tf.math.reduce_sum(tf.convert_to_tensor(self.bhist_bkg_fit.to_numpy()[0]), axis=1)
         yields_data_fit = tf.math.reduce_sum(tf.convert_to_tensor(self.bhist_fit.to_numpy()[0]), axis=1)
@@ -247,6 +295,12 @@ class QuantileFitter:
         #yields_data_plt = tf.where(tf.equal(yields_data_plt, 0), 1, yields_data_plt) 
         self.scale_sf_bkg_plt = tf.linalg.diag(tf.math.divide(yields_bkg_plt, yields_data_plt))
         self.scale_sf_sig_plt = tf.linalg.diag(tf.math.divide(yields_data_plt-yields_bkg_plt, yields_data_plt))
+        
+        #print(yields_bkg_fit)
+        #print(self.bhist_bkg_fit)
+        #print(self.scale_sf_bkg_fit)
+        #print(self.scale_sf_sig_fit)
+        #quit()
 
     def get_eigenvectors(self, hess, num_null = 0, scale=False):
         e,v = np.linalg.eigh(hess)
@@ -263,8 +317,8 @@ class QuantileFitter:
   
     def qTslice(self, bhist, qTlow, qThigh, norm=False):
         s = hist.tag.Slicer()
-        h = bhist[{"qTbinned": s[complex(0,qTlow):complex(0,qThigh)]}]
-        h = h[{"qTbinned": s[0:hist.overflow:hist.sum]}] # remove the overflow in the sum  
+        h = bhist[{"qt": s[complex(0,qTlow):complex(0,qThigh)]}]
+        h = h[{"qt": s[0:hist.overflow:hist.sum]}] # remove the overflow in the sum  
         if norm:
             h = h/h.sum().value
         return h
@@ -294,7 +348,7 @@ class QuantileFitter:
 
     def qparms_prefit(self, yRatio=1.08, newOrder=-1):
         self.logging.info("Plot qparms prefit")
-        outDir = f"{self.baseDir}/qparms_prefit/"
+        outDir = f"{self.plotDir}/qparms_prefit/"
         utils.mkdir(outDir, True)
 
         x_vals = []
@@ -413,7 +467,7 @@ class QuantileFitter:
             canvas.SaveAs("{}/q{:03d}_tf.png".format(outDir, i))
             canvas.SaveAs("{}/q{:03d}_tf.pdf".format(outDir, i))
 
-        with open(f"{self.baseDir}/prefit.pkl", 'wb') as handle:
+        with open(self.prefit_pkl, 'wb') as handle:
             outDict['qTMin'] = self.qTMin
             outDict['qTMax'] = self.qTMax
             outDict['recoilMin'] = self.recoilMin
@@ -429,7 +483,7 @@ class QuantileFitter:
 
     def qparms_postfit(self, yRatio=1.08):
         self.logging.info("Plot qparms postfit")
-        outDir = f"{self.baseDir}/qparms_postfit/"
+        outDir = f"{self.plotDir}/qparms_postfit/"
         utils.mkdir(outDir, True)
 
         x_vals = []
@@ -450,7 +504,7 @@ class QuantileFitter:
                 y_vals[iPar].append(qparms[qTbin][iPar].numpy())
                 y_vals_tf_err[iPar].append(qparms_err[qTbin][iPar])
 
-        fIn = open(f"{self.baseDir}/postfit.pkl", "rb")
+        fIn = open(self.postfit_pkl, "rb")
         pkl = pickle.load(fIn)
         parms_postfit = pkl['x']
 
@@ -545,7 +599,7 @@ class QuantileFitter:
 
 
     def plotQuantiles(self, yRatio=1.08):
-        outDir = f"{self.baseDir}/quantiles_param_postfit/"
+        outDir = f"{self.plotDir}/quantiles_param_postfit/"
         utils.mkdir(outDir, True)
                 
         x_vals = []
@@ -725,12 +779,10 @@ class QuantileFitter:
             canvas.SaveAs("{}/q{:03d}_tf.pdf".format(outDir, i))
             
 
-
-
     def paramsVsQuantile(self):
-        outDir = f"{self.baseDir}/quantiles_param_vs_q/"
+        outDir = f"{self.plotDir}/quantiles_param_vs_q/"
         utils.mkdir(outDir, True)
-        jsIn = utils.loadJSON(f"{self.baseDir}/quantiles_param/results_param.json")
+        jsIn = utils.loadJSON(f"{self.plotDir}/quantiles_param/results_param.json")
 
         x_vals = [0.5*(self.quant_cdfvals[i-1]+self.quant_cdfvals[i]) for i in range(1, self.nQuants)] # quantile midpoints
         y_vals = [[] for g in range(0, self.order+1)]
@@ -815,19 +867,136 @@ class QuantileFitter:
             canvas.Delete()                  
 
 
-    def fit(self, withConstraint=False, parms=[], usePrevPostFit=False):
+
+    def knots_vs_cdfvals(self):
+        self.logging.info("Plot qparms postfit")
+        outDir = f"{self.plotDir}/knots_cdfvals/"
+        utils.mkdir(outDir, True)
+
+        x_vals = []
+        y_vals = [[] for i in range(0, self.nQuants)]
+        y_vals_err = [[] for i in range(0, self.nQuants)]
+        y_vals_tf = [[] for i in range(0, self.nParams)]
+        y_vals_tf_err = [[] for i in range(0, self.nParams)]
+
+        # compute CDF vals for the backgrounds
+        hist_quantiles, hist_quantiles_err = narf.fitutils.hist_to_quantiles(self.bhist_minus_bkg_fit, self.quant_cdfvals_tf, axis=1) # , cdfvals_bkg=self.bkg_cdf 
+        qparms, qparms_err =  narf.fitutils.quantiles_to_qparms(hist_quantiles, quant_errs=hist_quantiles_err, x_low=self.recoilMin, x_high=self.recoilMax) # shape (qTbins, nQparms)
+
+        for qTbin,quantiles in enumerate(hist_quantiles):
+            qT, qTlow, qThigh = self.centers_qt[qTbin], self.bins_qt[qTbin], self.bins_qt[qTbin+1]
+            x_vals.append(qT)
+            for iPar in range(0, self.nParams):
+                y_vals_tf[iPar].append(qparms[qTbin][iPar])
+                y_vals[iPar].append(qparms[qTbin][iPar].numpy())
+                y_vals_tf_err[iPar].append(qparms_err[qTbin][iPar])
+
+        fIn = open(self.postfit_pkl, "rb")
+        pkl = pickle.load(fIn)
+        parms_postfit = pkl['x']
+        print(pkl.keys())
+        quant_cdfvals = pkl['quant_cdfvals_tf'][0].numpy()
+
+        parms =  tf.constant(parms_postfit, dtype=self.dtype)
+        print(parms)
+        parms_2d = tf.reshape(parms, (-1, pkl['order']))
+        
+        parms_2d = tf.transpose(parms_2d).numpy()
+        #parms_2d = parms_2d.numpy()
+        print(parms_2d)
+        print(pkl['order'])
+        quant_cdfvals_centers = (quant_cdfvals[1:] + quant_cdfvals[:-1]) / 2
+
+        
+
+
+
+
+        yRatio = 1.08
+        cfg = {
+            'logy'              : False,
+            'logx'              : True,
+            
+            'xmin'              : 1e-6,
+            'xmax'              : 1,
+            'ymin'              : -6,
+            'ymax'              : -2,
+                
+            'xtitle'            : "CDF Quantile",
+            'ytitle'            : "REC",
+                
+            'topRight'          : self.lumiLabel, 
+            'topLeft'           : "#bf{CMS} #scale[0.7]{#it{Preliminary}}",
+                
+            'ratiofraction'     : 0.3,
+            'ytitleR'           : "Ratio",
+            'yminR'             : (1-(yRatio-1)),
+            'ymaxR'             : yRatio,
+        }
+
+        for iKnot in range(len(parms_2d)):
+            g_data = self.makeTGraph(quant_cdfvals_centers, parms_2d[iKnot])
+        
+            plotter.cfg = cfg
+            canvas, padT, padB = plotter.canvasRatio()
+            dummyT, dummyB, dummyL = plotter.dummyRatio()
+                
+            ## TOP PAD ##
+            canvas.cd()
+            padT.Draw()
+            padT.cd()
+            padT.SetGrid()
+            padT.SetTickx()
+            padT.SetTicky()
+            dummyT.Draw("HIST")
+            g_data.Draw("PE SAME")
+            padT.RedrawAxis()
+            padT.RedrawAxis("G")
+            plotter.auxRatio()
+            latex = ROOT.TLatex()
+            latex.SetNDC()
+            latex.SetTextSize(0.04)
+            latex.SetTextColor(1)
+            latex.SetTextFont(42)
+            latex.DrawLatex(0.2, 0.85, self.procLabel)
+            latex.DrawLatex(0.2, 0.80, self.metLabel)
+
+            ## BOTTOM PAD ##
+            canvas.cd()
+            padB.Draw()
+            padB.cd()
+            padB.SetGrid()
+            padB.SetTickx()
+            padB.SetTicky()
+            dummyB.Draw("HIST")
+            dummyL.Draw("SAME")
+            padB.RedrawAxis()
+            padB.RedrawAxis("G")
+            canvas.Modify()
+            canvas.Update()
+            canvas.Draw()
+            canvas.SaveAs(f"{outDir}/knot_{iKnot}.png")
+            canvas.SaveAs(f"{outDir}/knot_{iKnot}.pdf")
+            canvas.Delete()
+
+
+    def fit(self, withConstraint=False, parms=[], ext=""):
         self.logging.info("Start fit")
-        outDir = f"{self.baseDir}/quantiles_refit/"
+        outDir = f"{self.plotDir}/quantiles_refit/"
         utils.mkdir(outDir, True)
 
         fit_args = (self.quant_cdfvals_tf, self.knots_qt, self.edges_qt_tf, self.order, self.extrpl, self.bkg_cdf_fit, self.scale_sf_sig_fit, self.scale_sf_bkg_fit)
 
-        if usePrevPostFit:
-            fIn = open(f"{self.baseDir}/postfit.pkl", "rb")
+        if ext == "":
+            fIn = open(self.prefit_pkl, "rb")
         else:
-            fIn = open(f"{self.baseDir}/prefit.pkl", "rb")
+            fIn = open(ext, "rb")
+
         pkl = pickle.load(fIn)
         parms_prefit = pkl['x']
+        
+        if len(parms) != 0:
+            parms_prefit = parms
 
         start = time.time()
         if withConstraint:
@@ -875,7 +1044,7 @@ class QuantileFitter:
             print(f" negative eigenvalue {ieig}, {eig}, min={np.min(np.abs(vec))}, max={np.max(np.abs(vec))}")
             print(vec)
 
-        with open(f"{self.baseDir}/postfit.pkl", 'wb') as handle:
+        with open(self.postfit_pkl, 'wb') as handle:
             res['qTMin'] = self.qTMin
             res['qTMax'] = self.qTMax
             res['recoilMin'] = self.recoilMin
@@ -894,14 +1063,19 @@ class QuantileFitter:
             res['withConstraint'] = withConstraint
             pickle.dump(res, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+        return parms_vals
 
-    def ratioHist_tgraph(self, hNom, hRatio, pdf):
+    def ratioHist_tgraph(self, hNom, hRatio, pdf, xMin=-9e99, xMax=9e99):
 
         chi2 = 0
         nBins = 0
         for i in range(1, hRatio.GetNbinsX()+1):
                 
             xLow , xHigh = hRatio.GetBinLowEdge(i), hRatio.GetBinLowEdge(i+1)
+            if xLow > xMax:
+                continue
+            if xHigh < xMin:
+                continue
             pdfLow, pdfHigh = pdf.Eval(xLow), pdf.Eval(xHigh)
             pdfVal = 0.5*(pdfLow + pdfHigh)
             pdfVal = pdf.Eval(hRatio.GetBinCenter(i))
@@ -936,45 +1110,66 @@ class QuantileFitter:
         pdf = pdf / norms[:, np.newaxis]
         return pdf
         
-    def plot_refit_quantiles(self, prefit=False, yRatio=1.15, logY=True, yMin=-1, yMax=-1):
+    def plot_refit_quantiles(self, prefit=False, yRatio=1.15, logY=True, yMin=-1, yMax=-1, xMin=-1, xMax=-1, ext=""):
 
         rebin = 1
         plotSignal = self.sub_bkg
 
-        if prefit:
-            self.logging.info("Plot prefit")
-            outDir = f"{self.baseDir}/pdf_prefit"
+        xMin = self.recoilMin if xMin == -1 else xMin
+        xMax = self.recoilMax if xMax == -1 else xMax
 
-            fIn = open(f"{self.baseDir}/prefit.pkl", "rb")
-            pkl = pickle.load(fIn)
-            parms_nom = pkl['x']
+        if ext == "":
+            if prefit:
+                self.logging.info("Plot prefit")
+                outDir = f"{self.plotDir}/pdf_prefit"
 
+                fIn = open(self.prefit_pkl, "rb")
+                pkl = pickle.load(fIn)
+                parms_nom = pkl['x']
+
+            else:
+                self.logging.info("Plot postfit")
+                outDir = f"{self.plotDir}/pdf_postfit"
+
+                fIn = open(self.postfit_pkl, "rb")
+                pkl = pickle.load(fIn)
+                hess = pkl['hess']
+                parms_nom = pkl['x']
+
+                eigvals = np.linalg.eigvalsh(hess)
+                n_zeros = (0 if pkl['withConstraint'] else self.order)
+
+
+                #eigenvalues, eigenvectors = self.get_eigenvectors(hess, num_null=n_zeros)
+                eig_vals, eig_vec = np.linalg.eigh(hess) # sorted
+                eig_vec = np.delete(eig_vec, list(range(0, n_zeros)), axis=1) # remove first order+1 vectors
+                eig_vals = np.delete(eig_vals, list(range(0, n_zeros)), axis=0) # remove first order+1 vectors
+                variances = np.reciprocal(np.sqrt(eig_vals)) # diag space
+
+                sigma = 1
+                parms_unc = []
+                for iPert, var in enumerate(variances):
+                    var_pert = sigma*(np.array([0. if iPert != k else val for k,val in enumerate(variances)]))
+                    var = eig_vec @ var_pert
+                    parms_pert = list(parms_nom + var)
+                    parms_unc.append(parms_pert)
         else:
-            self.logging.info("Plot postfit")
-            outDir = f"{self.baseDir}/pdf_postfit"
+            prefit = True
+            outDir = f"{self.plotDir}/pdf_ext"
 
-            fIn = open(f"{self.baseDir}/postfit.pkl", "rb")
+            fIn = open(ext, "rb")
             pkl = pickle.load(fIn)
-            hess = pkl['hess']
             parms_nom = pkl['x']
 
-            eigvals = np.linalg.eigvalsh(hess)
-            n_zeros = (0 if pkl['withConstraint'] else self.order)
+            self.quant_cdfvals_tf = pkl['quant_cdfvals_tf']
+            self.knots_qt = pkl['knots_qt']
+            self.edges_qt_tf = pkl['edges_qt_tf'] #self.edges_qt_tf ??
+            self.order = pkl['order']
+            self.extrpl = pkl['extrpl']
+            self.bkg_cdf_plt = None
+            self.scale_sf_sig_plt = None
+            self.scale_sf_bkg_plt = None
 
-
-            #eigenvalues, eigenvectors = self.get_eigenvectors(hess, num_null=n_zeros)
-            eig_vals, eig_vec = np.linalg.eigh(hess) # sorted
-            eig_vec = np.delete(eig_vec, list(range(0, n_zeros)), axis=1) # remove first order+1 vectors
-            eig_vals = np.delete(eig_vals, list(range(0, n_zeros)), axis=0) # remove first order+1 vectors
-            variances = np.reciprocal(np.sqrt(eig_vals)) # diag space
-
-            sigma = 1
-            parms_unc = []
-            for iPert, var in enumerate(variances):
-                var_pert = sigma*(np.array([0. if iPert != k else val for k,val in enumerate(variances)]))
-                var = eig_vec @ var_pert
-                parms_pert = list(parms_nom + var)
-                parms_unc.append(parms_pert)
 
         if not logY:
             outDir += "_lin"
@@ -1022,8 +1217,8 @@ class QuantileFitter:
             'logy'              : logY,
             'logx'              : False,
 
-            'xmin'              : self.recoilMin,
-            'xmax'              : self.recoilMax,
+            'xmin'              : xMin,
+            'xmax'              : xMax,
             'ymin'              : yMin,
             'ymax'              : yMax,
 
@@ -1088,7 +1283,7 @@ class QuantileFitter:
             
             if logY:
                 if yMin < 0:
-                    cfgPlot['ymin'] = math.pow(10., math.floor(math.log10(utils.getNonZeroMinimum(hist_root)))-1)
+                    cfgPlot['ymin'] = math.pow(10., math.floor(math.log10(utils.getNonZeroMinimum(hist_root, xMin=xMin, xMax=xMax)))-1)
                 if yMax < 0:
                     cfgPlot['ymax'] = math.pow(10., math.ceil(math.log10(hist_root.GetMaximum()))+3)
             else:
@@ -1214,7 +1409,7 @@ class QuantileFitter:
             histRatio.SetMarkerColor(ROOT.kBlack)
             histRatio.SetLineColor(ROOT.kBlack)
             histRatio.SetLineWidth(1)
-            chi2, histRatio = self.ratioHist_tgraph(hist_root, histRatio, g_pdf)
+            chi2, histRatio = self.ratioHist_tgraph(hist_root, histRatio, g_pdf, xMin=xMin, xMax=xMax)
             
 
             latex = ROOT.TLatex()
@@ -1273,7 +1468,7 @@ class QuantileFitter:
 
 
         if logY:
-            cfgPlot['ymin'] = math.pow(10., math.floor(math.log10(utils.getNonZeroMinimum(hist_root_tot)))-1)
+            cfgPlot['ymin'] = math.pow(10., math.floor(math.log10(utils.getNonZeroMinimum(hist_root_tot, xMin=xMin, xMax=xMax)))-1)
             cfgPlot['ymax'] = math.pow(10., math.ceil(math.log10(hist_root_tot.GetMaximum()))+3)
         else:
             cfgPlot['ymin'] = 0
@@ -1323,7 +1518,7 @@ class QuantileFitter:
         histRatio.SetMarkerColor(ROOT.kBlack)
         histRatio.SetLineColor(ROOT.kBlack)
         histRatio.SetLineWidth(1)
-        chi2, histRatio = self.ratioHist_tgraph(hist_root_tot, histRatio, g_pdf)
+        chi2, histRatio = self.ratioHist_tgraph(hist_root_tot, histRatio, g_pdf, xMin=xMin, xMax=xMax)
             
 
         latex = ROOT.TLatex()
