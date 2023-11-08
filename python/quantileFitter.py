@@ -28,7 +28,7 @@ np.set_printoptions(threshold=sys.maxsize)
 
 class QuantileFitter:
 
-    def __init__(self, proc, met, procLabel, metLabel, dataDir, plotDir, comp, lumiLabel, logging):
+    def __init__(self, proc, met, procLabel, metLabel, dataDir, plotDir, comp, lumiLabel, logging, suffix=""):
         self.proc = proc
         self.met = met
         self.procLabel = procLabel
@@ -40,9 +40,10 @@ class QuantileFitter:
         self.dtype = tf.float64
         self.itype = tf.int64
         self.logging = logging
+        self.suffix = suffix
 
-        self.prefit_pkl = f"{self.dataDir}/{self.proc}_{self.comp}_prefit.pkl"
-        self.postfit_pkl = f"{self.dataDir}/{self.proc}_{self.comp}_postfit.pkl"
+        self.prefit_pkl = f"{self.dataDir}/{self.proc}_{self.comp}{self.suffix}_prefit.pkl"
+        self.postfit_pkl = f"{self.dataDir}/{self.proc}_{self.comp}{self.suffix}_postfit.pkl"
         
     def setHistConfig(self, bhist, axis, qTMin, qTmax, recoilMin, recoilMax, qTRebin=1, recoilRebinFit=1, recoilRebinPlt=1):
 
