@@ -287,17 +287,17 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
 
-    #z_para()
-    #z_perp()
+    z_para()
+    z_perp()
 
-    #bkg_para()
-    #bkg_perp()
+    bkg_para()
+    bkg_perp()
 
-    #data_para(bkg_unc=False)
-    #data_perp(bkg_unc=False)
+    data_para(bkg_unc=False)
+    data_perp(bkg_unc=False)
 
-    #data_para(bkg_unc=True)
-    #data_perp(bkg_unc=True)
+    data_para(bkg_unc=True)
+    data_perp(bkg_unc=True)
 
     #z_perp_gen()
     #z_para_gen()
