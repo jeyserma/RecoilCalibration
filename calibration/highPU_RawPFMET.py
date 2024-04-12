@@ -138,11 +138,11 @@ def data_perp(bkg_unc=False):
     rqf.setHistConfig(bhist, "recoil_perp", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
     rqf.setSplineConfig([2, 6, 20, 60], extrpl=[None, 60])
-    rqf.setBackground(f"{dataDir}/bkg_perp_postfit.pkl", bhist_bkg, sf=(0.8 if bkg_unc else 1.0))
+    rqf.setBackground(f"{dataDir}/bkg_perp_postfit.pkl", bhist_bkg, sf=(1.2 if bkg_unc else 1.0))
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
-    parms = rqf.fit(withConstraint=False, ext=f"{dataDir}/z_perp_postfit.pkl")
+    parms = rqf.fit(withConstraint=False) # , ext=f"{dataDir}/z_perp_postfit.pkl"
     rqf.fit(withConstraint=True, parms=parms)
     rqf.plot_refit_quantiles(prefit=False, xMin=-100, xMax=100)
     rqf.plot_refit_quantiles(prefit=False, logY=False, xMin=-100, xMax=100)
@@ -168,7 +168,7 @@ def data_para(bkg_unc=False):
     rqf.setHistConfig(bhist, "recoil_para", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
     rqf.setSplineConfig([2, 6, 20, 60], extrpl=[None, 60])
-    rqf.setBackground(f"{dataDir}/bkg_para_postfit.pkl", bhist_bkg, sf=(0.8 if bkg_unc else 1.0))
+    rqf.setBackground(f"{dataDir}/bkg_para_postfit.pkl", bhist_bkg, sf=(1.2 if bkg_unc else 1.0))
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
@@ -243,10 +243,10 @@ def export():
     exp.add_pdf("data_perp", f"{dataDir}/data_perp_postfit.pkl")
     exp.add_pdf("mc_para", f"{dataDir}/z_para_postfit.pkl")
     exp.add_pdf("mc_perp", f"{dataDir}/z_perp_postfit.pkl")
-    exp.add_pdf("gen_para", f"{dataDir}/z_gen_para_postfit.pkl")
-    exp.add_pdf("gen_perp", f"{dataDir}/z_gen_perp_postfit.pkl")
+    #exp.add_pdf("gen_para", f"{dataDir}/z_gen_para_postfit.pkl")
+    #exp.add_pdf("gen_perp", f"{dataDir}/z_gen_perp_postfit.pkl")
     exp.export(f"{dataDir}/model_mc_data.tflite")
-    exp.test(f"{dataDir}/model_mc_data.tflite")
+    #exp.test(f"{dataDir}/model_mc_data.tflite")
 
 
 
@@ -264,17 +264,17 @@ if __name__ == "__main__":
         data_z = pickle.load(f)
     lumiLabel = data_z['lumi_header']
 
-    z_para()
-    z_perp()
+    #z_para()
+    #z_perp()
 
-    bkg_para()
-    bkg_perp()
+    #bkg_para()
+    #bkg_perp()
 
-    data_para(bkg_unc=False)
-    data_perp(bkg_unc=False)
+    #data_para(bkg_unc=False)
+    #data_perp(bkg_unc=False)
 
-    data_para(bkg_unc=True)
-    data_perp(bkg_unc=True)
+    #data_para(bkg_unc=True)
+    #data_perp(bkg_unc=True)
     
     #z_perp_gen()
     #z_para_gen()

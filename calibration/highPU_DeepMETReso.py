@@ -19,20 +19,20 @@ import exportModel
 
 def bkg_perp():
     proc = "bkg"
-    plotDir = "%s/%s_perp" % (basePlotDir, proc)
+    plotDir = f"{basePlotDir}/{proc}_perp"
     procLabel = "TTbar+EWK #rightarrow #mu^{+}#mu^{#minus}"
-    metLabel = "%s, U_{#perp}" % (met)
+    metLabel = f"{met}, U_{{#perp}}"
     utils.mkdir(plotDir, False)
     bhist = data_z['bkg_perp']
 
-    recoilRebin = [-80, -70, -65, -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 80]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
+    recoilRebin = [-80, -75, -70, -65,  -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
+    bins_for_quantiles = [-80, -70,  -60, -50, -45, -40, -38, -36, -34, -32] + list(range(-30, 30, 2)) + [32, 34, 36, 38, 40, 45, 50, 60, 70, 80]
+    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 80, 5)) + [80, 90, 100]
 
     rqf = qf.QuantileFitter(proc, met, procLabel, metLabel, dataDir, plotDir, "perp", lumiLabel, logging)
     rqf.setHistConfig(bhist, "recoil_perp", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
-    rqf.setSplineConfig([2, 6, 20, 60], extrpl=[None, 60])
+    rqf.setSplineConfig([1, 4, 8, 20, 60], extrpl=[None, 60])
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
@@ -44,20 +44,23 @@ def bkg_perp():
 
 def bkg_para():
     proc = "bkg"
-    plotDir = "%s/%s_para" % (basePlotDir, proc)
+    plotDir = f"{basePlotDir}/{proc}_para"
     procLabel = "TTbar+EWK #rightarrow #mu^{+}#mu^{#minus}"
-    metLabel = "%s, U_{#parallel}" % (met)
+    metLabel = f"{met}, U_{{#parallel}}"
     utils.mkdir(plotDir, False)
     bhist = data_z['bkg_para']
 
-    recoilRebin = [-80, -70, -65, -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
+    #recoilRebin = [-80, -75, -70, -65,  -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
+    #bins_for_quantiles = recoilRebin
+    recoilRebin = [-80, -75, -70, -65,  -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [35, 36, 40, 45, 50, 55, 60, 65, 70, 75, 80]
+    bins_for_quantiles = [-80, -70,  -60, -50, -45, -40, -38, -36, -34, -32] + list(range(-30, 30, 2)) + [32, 34, 36, 38, 40, 45, 50, 60, 70, 80]
+    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 80, 5)) + [80, 90, 100]
 
     rqf = qf.QuantileFitter(proc, met, procLabel, metLabel, dataDir, plotDir, "para", lumiLabel, logging)
     rqf.setHistConfig(bhist, "recoil_para", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
-    rqf.setSplineConfig([2, 6, 20, 60], extrpl=[None, 60])
+    #rqf.setSplineConfig([1, 4, 8, 20, 60], extrpl=[None, 60])
+    rqf.setSplineConfig([1, 4, 8, 15, 30,  60], extrpl=[None, 60])
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
@@ -65,8 +68,6 @@ def bkg_para():
     rqf.plot_refit_quantiles(prefit=False)
     rqf.plot_refit_quantiles(prefit=False, logY=False)
     rqf.qparms_postfit()
-
-
 
 def z_perp():
     proc = "z"
@@ -77,17 +78,13 @@ def z_perp():
     bhist = data_z['z_perp']
 
     recoilRebin = [-80, -70, -65, -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 80]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
-    
-    #recoilRebin = [ -80, -65, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 65, 80]
-    #bins_for_quantiles = recoilRebin
-    #qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
+    bins_for_quantiles = [-80, -70,  -60, -50, -45, -40, -38, -36, -34, -32] + list(range(-30, 30, 2)) + [32, 34, 36, 38, 40, 45, 50, 60, 70, 80]
+    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 80, 5)) + [80, 90, 100]
 
     rqf = qf.QuantileFitter(proc, met, procLabel, metLabel, dataDir, plotDir, "perp", lumiLabel, logging)
     rqf.setHistConfig(bhist, "recoil_perp", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
-    rqf.setSplineConfig([2, 6, 20, 60], extrpl=[None, 60])
+    rqf.setSplineConfig([1, 4, 8, 20, 60], extrpl=[None, 60])
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
@@ -106,14 +103,15 @@ def z_para():
     utils.mkdir(plotDir, False)
     bhist = data_z['z_para']
 
-    recoilRebin = [-80, -70, -65, -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
+    recoilRebin = [-80, -75, -70, -65,  -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [35, 36, 40, 45, 50, 55, 60, 65, 70, 75, 80]
+    bins_for_quantiles = [-80, -70,  -60, -50, -45, -40, -38, -36, -34, -32] + list(range(-30, 30, 2)) + [32, 34, 36, 38, 40, 45, 50, 60, 70, 80]
+    #bins_for_quantiles = list(range(-80, 80, 10))
+    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 80, 5)) + [80, 90, 100]
 
     rqf = qf.QuantileFitter(proc, met, procLabel, metLabel, dataDir, plotDir, "para", lumiLabel, logging)
     rqf.setHistConfig(bhist, "recoil_para", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
-    rqf.setSplineConfig([2, 6, 20, 60], extrpl=[None, 60])
+    rqf.setSplineConfig([1, 4, 8, 15, 30,  60], extrpl=[None, 60])
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
@@ -134,24 +132,19 @@ def data_perp(bkg_unc=False):
     bhist_bkg = data_z['bkg_perp']
     plotDir_bkg = plotDir.replace("data", "bkg")
 
-    recoilRebin = [-100, -90, -80, -70, -60, -55, -50, -45, -40, -35, -30] + list(range(-25, 25, 2)) + [25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100]
-    recoilRebin = [-100, -85, -70, -65, -60, -55, -50, -45, -40, -35, -30] + list(range(-25, 25, 2)) + [25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 85, 100]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
-
-    recoilRebin = [-80, -70, -65, -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 80]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
+    recoilRebin = [-80, -75, -70, -65,  -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 75,  80]
+    bins_for_quantiles = [-80, -70,  -60, -50, -45, -40, -38, -36, -34, -32] + list(range(-30, 30, 2)) + [32, 34, 36, 38, 40, 45, 50, 60, 70, 80]
+    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 80, 5)) + [80, 90, 100]
 
     rqf = qf.QuantileFitter(proc, met, procLabel, metLabel, dataDir, plotDir, "perp", lumiLabel, logging, suffix=suffix)
     rqf.setHistConfig(bhist, "recoil_perp", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
-    rqf.setSplineConfig([2, 6, 20, 50], extrpl=[None, 50])
-    rqf.setBackground(f"{dataDir}/bkg_perp_postfit.pkl", bhist_bkg, sf=(0.8 if bkg_unc else 1.0))
+    rqf.setSplineConfig([1, 4, 8, 20, 60], extrpl=[None, 60])
+    rqf.setBackground(f"{dataDir}/bkg_perp_postfit.pkl", bhist_bkg, sf=(1.2 if bkg_unc else 1.0))
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
-    parms = rqf.fit(withConstraint=False) # , ext=f"{dataDir}/z_perp_postfit.pkl"
+    parms = rqf.fit(withConstraint=False, ext=f"{dataDir}/z_perp_postfit.pkl") # , ext=f"{dataDir}/z_perp_postfit.pkl"
     rqf.fit(withConstraint=True, parms=parms)
     rqf.plot_refit_quantiles(prefit=False)
     rqf.plot_refit_quantiles(prefit=False, logY=False)
@@ -169,23 +162,20 @@ def data_para(bkg_unc=False):
     bhist_bkg = data_z['bkg_para']
     plotDir_bkg = plotDir.replace("data", "bkg")
 
-    recoilRebin = [ -100,  -85, -70, -60, -55, -50, -45, -40, -35, -30] + list(range(-25, 25, 2)) + [25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
-
-    recoilRebin = [-80, -70, -65, -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
-    bins_for_quantiles = recoilRebin
-    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 100, 5)) + [100]
+    #recoilRebin = [ -100,  -85, -70, -60, -55, -50, -45, -40, -35, -30] + list(range(-25, 25, 2)) + [25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100]
+    recoilRebin = [-80, -75, -70, -65,  -60, -55, -50, -45, -40, -35] + list(range(-30, 30, 2)) + [35, 36, 40, 45, 50, 55, 60, 65, 70, 75, 80]
+    bins_for_quantiles = [-80, -70,  -60, -50, -45, -40, -38, -36, -34, -32] + list(range(-30, 30, 2)) + [32, 34, 36, 38, 40, 45, 50, 60, 70, 80]
+    qTRebin = list(range(0, 30, 1)) + list(range(30, 50, 2)) + list(range(50, 80, 5)) + [80, 90, 100]
 
     rqf = qf.QuantileFitter(proc, met, procLabel, metLabel, dataDir, plotDir, "para", lumiLabel, logging, suffix=suffix)
     rqf.setHistConfig(bhist, "recoil_para", min(qTRebin), max(qTRebin), min(recoilRebin), max(recoilRebin), qTRebin=qTRebin, recoilRebinFit=1, recoilRebinPlt=2)
     rqf.setQuantiles(bins_for_quantiles=bins_for_quantiles)
-    rqf.setSplineConfig([2, 6, 20, 60], extrpl=[None, 60])
-    rqf.setBackground(f"{dataDir}/bkg_para_postfit.pkl", bhist_bkg, sf=(0.8 if bkg_unc else 1.0))
+    rqf.setSplineConfig([1, 4, 8, 15, 30, 60], extrpl=[None, 60])
+    rqf.setBackground(f"{dataDir}/bkg_para_postfit.pkl", bhist_bkg, sf=(1.2 if bkg_unc else 1.0))
 
     rqf.qparms_prefit()
     rqf.plot_refit_quantiles(prefit=True)
-    parms = rqf.fit(withConstraint=False) # , ext=f"{dataDir}/z_para_postfit.pkl"
+    parms = rqf.fit(withConstraint=False, ext=f"{dataDir}/z_para_postfit.pkl") # , ext=f"{dataDir}/z_para_postfit.pkl"
     rqf.fit(withConstraint=True, parms=parms)
     rqf.plot_refit_quantiles(prefit=False)
     rqf.plot_refit_quantiles(prefit=False, logY=False)
@@ -194,9 +184,9 @@ def data_para(bkg_unc=False):
 
 def z_perp_gen():
     proc = "z_gen"
-    plotDir = "%s/%s_perp" % (basePlotDir, proc)
+    plotDir = f"{basePlotDir}/{proc}_perp"
     procLabel = "DY #rightarrow #mu^{+}#mu^{#minus} (q_{T} gen)"
-    metLabel = "%s, U_{#perp}" % (met)
+    metLabel = f"{met}, U_{{#perp}}"
     utils.mkdir(plotDir, False)
     bhist = data_z['z_perp_gen']
 
@@ -221,9 +211,9 @@ def z_perp_gen():
 
 def z_para_gen():
     proc = "z_gen"
-    plotDir = "%s/%s_para" % (basePlotDir, proc)
+    plotDir = f"{basePlotDir}/{proc}_para"
     procLabel = "DY #rightarrow #mu^{+}#mu^{#minus} (q_{T} gen)"
-    metLabel = "%s, U_{#parallel}" % (met)
+    metLabel = f"{met}, U_{{#parallel}}"
     utils.mkdir(plotDir, False)
     bhist = data_z['z_para_gen']
 
@@ -257,10 +247,10 @@ def export():
     exp.add_pdf("data_perp", f"{dataDir}/data_perp_postfit.pkl")
     exp.add_pdf("mc_para", f"{dataDir}/z_para_postfit.pkl")
     exp.add_pdf("mc_perp", f"{dataDir}/z_perp_postfit.pkl")
-    exp.add_pdf("gen_para", f"{dataDir}/z_gen_para_postfit.pkl")
-    exp.add_pdf("gen_perp", f"{dataDir}/z_gen_perp_postfit.pkl")
+    #exp.add_pdf("gen_para", f"{dataDir}/z_gen_para_postfit.pkl")
+    #exp.add_pdf("gen_perp", f"{dataDir}/z_gen_perp_postfit.pkl")
     exp.export(f"{dataDir}/model_mc_data.tflite")
-    exp.test(f"{dataDir}/model_mc_data.tflite")
+    #exp.test(f"{dataDir}/model_mc_data.tflite")
     quit()
     exp = exportModel.Export()
     exp.set_limits(500, -80, 80) # limits on ut
@@ -273,7 +263,7 @@ def export():
 if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
-    met = "DeepMETReso"
+    met = "DeepMETPVRobust"
 
     basePlotDir = "/home/submit/jaeyserm/public_html/recoil/highPU_DeepMETReso/calibration/"
     dataDir = "data/highPU_DeepMETReso/"
@@ -287,17 +277,17 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
 
-    z_para()
-    z_perp()
+    #z_para()
+    #z_perp()
 
-    bkg_para()
-    bkg_perp()
+    #bkg_para()
+    #bkg_perp()
 
-    data_para(bkg_unc=False)
-    data_perp(bkg_unc=False)
+    #data_para(bkg_unc=False)
+    #data_perp(bkg_unc=False)
 
-    data_para(bkg_unc=True)
-    data_perp(bkg_unc=True)
+    #data_para(bkg_unc=True)
+    #data_perp(bkg_unc=True)
 
     #z_perp_gen()
     #z_para_gen()

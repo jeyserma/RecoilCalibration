@@ -182,6 +182,7 @@ class Export:
             return cdfinv, pdf
 
         def transform(pt, ut):
+            pt = tf.where(tf.math.greater(pt, self.pt_max), self.pt_max, pt)
             cdf_mc = func_cdf_source(pt, ut)
             ut_transformed, pdf = func_cdfinv_pdf_target(pt, cdf_mc)
             ut_transformed = tf.reshape(ut_transformed, [])
